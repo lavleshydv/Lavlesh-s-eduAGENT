@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Handwriting Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=Inter:wght@300;400;500&family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=Handlee&family=Patrick+Hand&family=Indie+Flower&family=Shadows+Into+Light&family=Reenie+Beanie&family=Nothing+You+Could+Do&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0c0c12;
+  --s1: #13131c;
+  --s2: #1c1c28;
+  --s3: #252535;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --accent: #8b7cf8;
+  --accent2: #b4a8ff;
+  --green: #3ddba4;
+  --amber: #f5c842;
+  --coral: #f87171;
+  --text: #eeeaff;
+  --text2: #9994b8;
+  --text3: #5e5a7a;
+  --r: 12px;
+  --rl: 18px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:rgba(12,12,18,0.95);backdrop-filter:blur(10px);position:sticky;top:0;z-index:200}
+.logo{font-family:'Syne',sans-serif;font-size:19px;font-weight:700;letter-spacing:-0.5px}
+.logo em{color:var(--accent2);font-style:normal}
+.pill{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--s2);border:1px solid var(--border);padding:4px 12px;border-radius:100px}
+.dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;height:calc(100vh - 53px);overflow:hidden}
+
+/* LEFT PANEL */
+.left{width:300px;flex-shrink:0;border-right:1px solid var(--border);background:var(--s1);display:flex;flex-direction:column;overflow-y:auto}
+.left::-webkit-scrollbar{width:3px}
+.left::-webkit-scrollbar-thumb{background:var(--s3)}
+.panel-sec{padding:16px;border-bottom:1px solid var(--border)}
+.sec-title{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);margin-bottom:12px;font-weight:600}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:24px 16px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+.upload-zone:hover{border-color:var(--accent);background:rgba(139,124,248,0.05)}
+.upload-zone.loaded{border-color:var(--green);background:rgba(61,219,164,0.04)}
+.upload-zone input{display:none}
+.uz-icon{font-size:28px;margin-bottom:8px}
+.uz-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:4px}
+.uz-sub{font-size:11px;color:var(--text3)}
+.uz-preview{width:100%;border-radius:8px;margin-top:10px;max-height:120px;object-fit:cover;display:none}
+
+/* STYLE TAGS */
+.style-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.style-tag{padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-family:'Inter',sans-serif;cursor:pointer;text-align:center;transition:all 0.15s}
+.style-tag:hover{border-color:var(--accent);color:var(--text)}
+.style-tag.on{background:rgba(139,124,248,0.15);border-color:rgba(139,124,248,0.4);color:var(--accent2)}
+
+/* DETECTED TRAITS */
+.trait-box{background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-top:10px;display:none}
+.trait-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}
+.trait-label{color:var(--text3)}
+.trait-val{color:var(--accent2);font-weight:500}
+
+/* PARAMS */
+.param-row{margin-bottom:10px}
+.param-label{font-size:11px;color:var(--text3);margin-bottom:5px;display:flex;justify-content:space-between}
+.param-label span{color:var(--accent2)}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;background:var(--s3);border-radius:2px;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--accent);border-radius:50%}
+select.ps{width:100%;background:var(--s2);border:1px solid var(--border2);color:var(--text2);font-family:'Inter',sans-serif;font-size:12px;padding:7px 10px;border-radius:8px;cursor:pointer}
+select.ps:focus{outline:none;border-color:var(--accent)}
+
+/* RIGHT PANEL */
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* TEXT INPUT ROW */
+.text-input-area{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--s1)}
+.input-row{display:flex;gap:10px;align-items:flex-end}
+.big-input{flex:1;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;padding:11px 14px;border-radius:var(--rl);resize:none;min-height:48px;max-height:150px;line-height:1.55;transition:border-color 0.15s}
+.big-input::placeholder{color:var(--text3)}
+.big-input:focus{outline:none;border-color:var(--accent)}
+.action-btns{display:flex;gap:8px}
+.btn{padding:9px 18px;border-radius:10px;border:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px)}
+.btn-secondary{background:var(--s2);border:1px solid var(--border2);color:var(--text2)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--text)}
+.btn-green{background:rgba(61,219,164,0.15);border:1px solid rgba(61,219,164,0.3);color:var(--green)}
+.btn-green:hover{background:rgba(61,219,164,0.25)}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+/* QUICK ASSIGNS */
+.quick-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{padding:5px 12px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;transition:all 0.15s;font-family:'Inter',sans-serif}
+.chip:hover{border-color:var(--accent);color:var(--accent2)}
+
+/* CANVAS AREA */
+.canvas-wrap{flex:1;overflow:auto;background:#f5f4ee;position:relative;display:flex;justify-content:center;padding:32px 24px}
+.canvas-wrap::-webkit-scrollbar{width:6px;height:6px}
+.canvas-wrap::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+.hw-page{width:794px;min-height:1123px;background:#fff;position:relative;box-shadow:0 4px 40px rgba(0,0,0,0.18);border-radius:4px;padding:72px 80px 80px;flex-shrink:0}
+.hw-page.lined::before{
+  content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+  background:repeating-linear-gradient(transparent,transparent 37px,rgba(100,140,220,0.12) 37px,rgba(100,140,220,0.12) 38px);
+  pointer-events:none;border-radius:4px
+}
+.hw-page.ruled::before{
+  content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+  background:repeating-linear-gradient(transparent,transparent 37px,rgba(180,180,210,0.18) 37px,rgba(180,180,210,0.18) 38px);
+  pointer-events:none
+}
+.hw-page.graph::before{
+  content:'';position:absolute;top:0;left:0;right:0;bottom:0;
+  background:
+    repeating-linear-gradient(transparent,transparent 25px,rgba(100,140,220,0.1) 25px,rgba(100,140,220,0.1) 26px),
+    repeating-linear-gradient(90deg,transparent,transparent 25px,rgba(100,140,220,0.1) 25px,rgba(100,140,220,0.1) 26px);
+  pointer-events:none
+}
+#hwCanvas{display:block;width:100%;position:relative;z-index:1}
+
+/* TOOLBAR */
+.canvas-toolbar{display:flex;align-items:center;gap:8px;padding:10px 20px;background:var(--s1);border-top:1px solid var(--border);flex-wrap:wrap}
+.tb-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.15s}
+.tb-btn:hover{border-color:var(--accent);color:var(--text)}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 2px}
+.page-type-btns{display:flex;gap:4px}
+.pt-btn{padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.15s}
+.pt-btn.on{background:rgba(139,124,248,0.15);border-color:rgba(139,124,248,0.4);color:var(--accent2)}
+
+/* LOADING */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(12,12,18,0.75);z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading-overlay.show{display:flex}
+.spin{width:40px;height:40px;border:3px solid var(--s3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--text2)}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:600;letter-spacing:0.5px}
+.b-green{background:rgba(61,219,164,0.15);color:var(--green)}
+.b-amber{background:rgba(245,200,66,0.15);color:var(--amber)}
+.b-purple{background:rgba(139,124,248,0.15);color:var(--accent2)}
+
+/* DETECTED BOX */
+.detected-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+
+@media(max-width:700px){.left{display:none}.hw-page{width:100%;min-height:auto;padding:32px 24px}}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spin"></div>
+  <div class="loading-text" id="loadingText">Analyzing handwriting...</div>
+</div>
+
+<div class="hdr">
+  <div class="logo">Writing<em>Agent</em></div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <div class="pill"><div class="dot"></div> Claude Vision · Active</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT CONFIG PANEL -->
+  <div class="left">
+
+    <!-- UPLOAD -->
+    <div class="panel-sec">
+      <div class="sec-title">Step 1 · Your Handwriting Sample</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('hwFile').click()">
+        <input type="file" id="hwFile" accept="image/*" onchange="onImageUpload(event)">
+        <div class="uz-icon">📸</div>
+        <div class="uz-title">Upload handwriting image</div>
+        <div class="uz-sub">Photo of your notes, assignment, etc.</div>
+        <img id="uzPreview" class="uz-preview">
+      </div>
+
+      <div class="trait-box" id="traitBox">
+        <div class="detected-header">
+          <span style="font-size:11px;color:var(--text2);font-weight:500">Detected Style</span>
+          <span class="badge b-green">✓ Analyzed</span>
+        </div>
+        <div class="trait-row"><span class="trait-label">Slant</span><span class="trait-val" id="trSlant">—</span></div>
+        <div class="trait-row"><span class="trait-label">Size</span><span class="trait-val" id="trSize">—</span></div>
+        <div class="trait-row"><span class="trait-label">Spacing</span><span class="trait-val" id="trSpacing">—</span></div>
+        <div class="trait-row"><span class="trait-label">Style</span><span class="trait-val" id="trStyle">—</span></div>
+        <div class="trait-row"><span class="trait-label">Pressure</span><span class="trait-val" id="trPressure">—</span></div>
+        <div class="trait-row"><span class="trait-label">Font Match</span><span class="trait-val" id="trFont">—</span></div>
+      </div>
+    </div>
+
+    <!-- FONT STYLE -->
+    <div class="panel-sec">
+      <div class="sec-title">Step 2 · Choose Base Style</div>
+      <div class="style-grid" id="styleGrid">
+        <button class="style-tag on" onclick="setFont('Caveat', this)" data-font="Caveat">Casual Cursive</button>
+        <button class="style-tag" onclick="setFont('Kalam', this)" data-font="Kalam">Neat Print</button>
+        <button class="style-tag" onclick="setFont('Handlee', this)" data-font="Handlee">Loopy Script</button>
+        <button class="style-tag" onclick="setFont('Patrick Hand', this)" data-font="Patrick Hand">Clean Hand</button>
+        <button class="style-tag" onclick="setFont('Indie Flower', this)" data-font="Indie Flower">Bubbly</button>
+        <button class="style-tag" onclick="setFont('Shadows Into Light', this)" data-font="Shadows Into Light">Slanted</button>
+        <button class="style-tag" onclick="setFont('Reenie Beanie', this)" data-font="Reenie Beanie">Thin Loose</button>
+        <button class="style-tag" onclick="setFont('Nothing You Could Do', this)" data-font="Nothing You Could Do">Artistic</button>
+      </div>
+    </div>
+
+    <!-- PARAMS -->
+    <div class="panel-sec">
+      <div class="sec-title">Step 3 · Fine-tune</div>
+
+      <div class="param-row">
+        <div class="param-label">Font size <span id="fsVal">22px</span></div>
+        <input type="range" min="14" max="36" value="22" oninput="updateParam('fontSize', this.value+'px', 'fsVal', this.value+'px')">
+      </div>
+      <div class="param-row">
+        <div class="param-label">Line height <span id="lhVal">1.9</span></div>
+        <input type="range" min="12" max="28" value="19" oninput="updateParam('lineHeight', (this.value/10).toFixed(1), 'lhVal', (this.value/10).toFixed(1))">
+      </div>
+      <div class="param-row">
+        <div class="param-label">Slant <span id="slVal">0°</span></div>
+        <input type="range" min="-8" max="8" value="0" oninput="updateParam('slant', this.value+'deg', 'slVal', this.value+'°')">
+      </div>
+      <div class="param-row">
+        <div class="param-label">Letter spacing <span id="lsVal">0px</span></div>
+        <input type="range" min="-2" max="6" value="0" oninput="updateParam('letterSpacing', this.value+'px', 'lsVal', this.value+'px')">
+      </div>
+      <div class="param-row">
+        <div class="param-label">Ink color</div>
+        <select class="ps" id="inkColor" onchange="rerenderText()">
+          <option value="#1a1230">Dark Blue-Black</option>
+          <option value="#0d0d0d">Jet Black</option>
+          <option value="#1a3a6b">Royal Blue</option>
+          <option value="#2c1a6b">Deep Indigo</option>
+          <option value="#1a4a1a">Dark Green</option>
+          <option value="#8B0000">Dark Red</option>
+        </select>
+      </div>
+      <div class="param-row" style="margin-top:12px">
+        <div class="param-label">Page style</div>
+        <div class="page-type-btns" id="pageBtns">
+          <button class="pt-btn on" onclick="setPageStyle('lined',this)">Lined</button>
+          <button class="pt-btn" onclick="setPageStyle('ruled',this)">Ruled</button>
+          <button class="pt-btn" onclick="setPageStyle('graph',this)">Graph</button>
+          <button class="pt-btn" onclick="setPageStyle('plain',this)">Plain</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-sec" style="border:none">
+      <div class="sec-title">Paper color</div>
+      <select class="ps" id="paperColor" onchange="setPaperColor(this.value)">
+        <option value="#ffffff">White</option>
+        <option value="#fafaf4">Cream</option>
+        <option value="#f5f0e8">Parchment</option>
+        <option value="#f0f4ff">Light Blue</option>
+        <option value="#f5fff5">Light Green</option>
+      </select>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: CANVAS + INPUT -->
+  <div class="right">
+
+    <!-- INPUT AREA -->
+    <div class="text-input-area">
+      <div class="input-row">
+        <textarea class="big-input" id="textInput" placeholder="Type or paste your assignment text here... or use quick prompts below to generate with AI" rows="2"
+          oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+        <div class="action-btns">
+          <button class="btn btn-secondary" onclick="generateWithAI()" id="aiBtn">✨ AI Write</button>
+          <button class="btn btn-primary" onclick="renderHandwriting()" id="renderBtn">✍️ Render</button>
+        </div>
+      </div>
+      <div class="quick-row">
+        <button class="chip" onclick="setQuick('Write a 300-word essay on climate change and its effects on ocean levels.')">🌍 Climate Essay</button>
+        <button class="chip" onclick="setQuick('Write step-by-step solutions for: 1) 3x + 7 = 22, Find x  2) Area of circle with radius 5cm  3) Simplify: 4(2x-3) + 6x')">🔢 Math Solutions</button>
+        <button class="chip" onclick="setQuick('Write a short note on the causes of World War I including the assassination of Archduke Franz Ferdinand.')">📜 History Note</button>
+        <button class="chip" onclick="setQuick('Explain photosynthesis: the process by which plants convert sunlight, water and CO2 into glucose and oxygen.')">🌿 Science Note</button>
+        <button class="chip" onclick="setQuick('Write a lab report introduction on: Investigating the effect of temperature on enzyme activity.')">⚗️ Lab Report</button>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="hw-page lined" id="hwPage">
+        <div id="hwCanvas" style="min-height:900px">
+          <div style="font-family:'Caveat',cursive;font-size:22px;color:#bbb;opacity:0.4;text-align:center;padding-top:200px">
+            Your handwritten text will appear here...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="canvas-toolbar">
+      <button class="tb-btn" onclick="clearPage()">🗑 Clear</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="exportPNG()">📷 Save PNG</button>
+      <button class="tb-btn btn-green" style="background:rgba(61,219,164,0.1);border-color:rgba(61,219,164,0.3);color:var(--green)" onclick="exportPDF()">📄 Export PDF</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="printPage()">🖨 Print</button>
+      <div class="tb-sep"></div>
+      <span style="font-size:11px;color:var(--text3);margin-left:4px" id="wordCount">0 words · 0 chars</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// STATE
+let hwStyle = {
+  fontFamily: 'Caveat',
+  fontSize: '22px',
+  lineHeight: '1.9',
+  slant: '0deg',
+  letterSpacing: '0px',
+  color: '#1a1230'
+};
+let uploadedB64 = null;
+let uploadedMime = null;
+let detectedTraits = null;
+let currentText = '';
+let pageStyle = 'lined';
+
+// UTILS
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,150)+'px'}
+function handleKey(e){if(e.key==='Enter'&&e.ctrlKey)renderHandwriting()}
+function showLoading(txt){document.getElementById('loadingOverlay').classList.add('show');document.getElementById('loadingText').textContent=txt||'Processing...'}
+function hideLoading(){document.getElementById('loadingOverlay').classList.remove('show')}
+function setQuick(t){document.getElementById('textInput').value=t;autoResize(document.getElementById('textInput'));updateWordCount(t)}
+function updateWordCount(t){const w=t.trim()?t.trim().split(/\s+/).length:0;document.getElementById('wordCount').textContent=`${w} words · ${t.length} chars`}
+
+// FONT
+function setFont(font, btn){
+  hwStyle.fontFamily = font;
+  document.querySelectorAll('.style-tag').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  rerenderText();
+}
+
+// PARAMS
+function updateParam(prop, val, displayId, displayVal){
+  if(prop==='slant') hwStyle.slant = val;
+  else if(prop==='fontSize') hwStyle.fontSize = val;
+  else if(prop==='lineHeight') hwStyle.lineHeight = val;
+  else if(prop==='letterSpacing') hwStyle.letterSpacing = val;
+  document.getElementById(displayId).textContent = displayVal;
+  rerenderText();
+}
+
+// PAGE STYLE
+function setPageStyle(style, btn){
+  pageStyle = style;
+  const page = document.getElementById('hwPage');
+  page.className = 'hw-page ' + (style==='plain'?'':style);
+  document.querySelectorAll('.pt-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function setPaperColor(color){document.getElementById('hwPage').style.background=color}
+
+// IMAGE UPLOAD + CLAUDE ANALYSIS
+async function onImageUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const result = ev.target.result;
+    uploadedB64 = result.split(',')[1];
+    uploadedMime = file.type;
+    const zone = document.getElementById('uploadZone');
+    const prev = document.getElementById('uzPreview');
+    zone.classList.add('loaded');
+    prev.src = result;
+    prev.style.display = 'block';
+    document.querySelector('.uz-title').textContent = '✅ ' + file.name;
+    document.querySelector('.uz-sub').textContent = 'Click to change';
+    await analyzeHandwriting();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeHandwriting(){
+  showLoading('Analyzing your handwriting style with Claude Vision...');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image',source:{type:'base64',media_type:uploadedMime,data:uploadedB64}},
+            {type:'text',text:`Analyze this handwriting image carefully. Return ONLY valid JSON (no markdown, no backticks):
+{
+  "slant": "right-leaning|left-leaning|vertical|slightly-right|slightly-left",
+  "size": "small|medium|large|very-large",
+  "spacing": "tight|normal|wide|very-wide",
+  "style": "cursive|print|mixed|semi-cursive",
+  "pressure": "light|medium|heavy",
+  "bestFontMatch": "Caveat|Kalam|Handlee|Patrick Hand|Indie Flower|Shadows Into Light|Reenie Beanie|Nothing You Could Do",
+  "suggestedSlantDeg": -5 to 5 (integer),
+  "suggestedSize": 18 to 32 (integer),
+  "suggestedLineHeight": 1.6 to 2.2 (float),
+  "suggestedLetterSpacing": -1 to 4 (integer),
+  "inkColorHex": "#1a1230 or similar dark ink hex"
+}`}
+          ]
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.[0]?.text || '{}';
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    const traits = JSON.parse(cleaned);
+    detectedTraits = traits;
+    applyDetectedStyle(traits);
+    showTraits(traits);
+  } catch(err){
+    console.error('Analysis error:', err);
+    document.getElementById('traitBox').style.display='block';
+    document.getElementById('trSlant').textContent='(upload a clearer image)';
+  }
+  hideLoading();
+}
+
+function applyDetectedStyle(t){
+  // Auto-apply detected style
+  hwStyle.fontFamily = t.bestFontMatch || 'Caveat';
+  hwStyle.slant = (t.suggestedSlantDeg||0) + 'deg';
+  hwStyle.fontSize = (t.suggestedSize||22) + 'px';
+  hwStyle.lineHeight = String(t.suggestedLineHeight||1.9);
+  hwStyle.letterSpacing = (t.suggestedLetterSpacing||0) + 'px';
+  if(t.inkColorHex) hwStyle.color = t.inkColorHex;
+
+  // Update sliders to match
+  const sliders = {
+    fontSize: t.suggestedSize||22,
+    lineHeight: Math.round((t.suggestedLineHeight||1.9)*10),
+    slant: t.suggestedSlantDeg||0,
+    letterSpacing: t.suggestedLetterSpacing||0
+  };
+  const inputs = document.querySelectorAll('input[type=range]');
+  inputs[0].value = sliders.fontSize; document.getElementById('fsVal').textContent=sliders.fontSize+'px';
+  inputs[1].value = sliders.lineHeight; document.getElementById('lhVal').textContent=(sliders.lineHeight/10).toFixed(1);
+  inputs[2].value = sliders.slant; document.getElementById('slVal').textContent=sliders.slant+'°';
+  inputs[3].value = sliders.letterSpacing; document.getElementById('lsVal').textContent=sliders.letterSpacing+'px';
+
+  // Highlight matched font button
+  document.querySelectorAll('.style-tag').forEach(b=>{
+    b.classList.toggle('on', b.dataset.font===t.bestFontMatch);
+  });
+
+  rerenderText();
+}
+
+function showTraits(t){
+  const box = document.getElementById('traitBox');
+  box.style.display = 'block';
+  document.getElementById('trSlant').textContent = t.slant||'—';
+  document.getElementById('trSize').textContent = t.size||'—';
+  document.getElementById('trSpacing').textContent = t.spacing||'—';
+  document.getElementById('trStyle').textContent = t.style||'—';
+  document.getElementById('trPressure').textContent = t.pressure||'—';
+  document.getElementById('trFont').textContent = t.bestFontMatch||'—';
+}
+
+// AI GENERATE
+async function generateWithAI(){
+  const prompt = document.getElementById('textInput').value.trim();
+  if(!prompt){alert('Enter a topic or assignment brief first.');return;}
+  showLoading('Writing with Claude AI...');
+  document.getElementById('aiBtn').disabled = true;
+  try {
+    const systemPrompt = `You are an expert academic writer. Write clear, natural, student-appropriate text.
+Write in a natural, slightly informal academic style — the way a student would handwrite notes or assignments.
+Do NOT use markdown formatting, headers, bullets, or asterisks. 
+Write in plain flowing paragraphs with natural punctuation.
+Keep it concise and suitable for handwriting (under 300 words unless asked for more).`;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        system: systemPrompt,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text||'';
+    document.getElementById('textInput').value = text;
+    autoResize(document.getElementById('textInput'));
+    updateWordCount(text);
+    currentText = text;
+    renderHandwriting();
+  } catch(err){
+    alert('AI generation failed: ' + err.message);
+  }
+  document.getElementById('aiBtn').disabled = false;
+  hideLoading();
+}
+
+// RENDER HANDWRITING ON PAGE
+function renderHandwriting(){
+  const text = document.getElementById('textInput').value.trim();
+  if(!text){alert('Enter some text first!');return;}
+  currentText = text;
+  updateWordCount(text);
+
+  const ink = document.getElementById('inkColor').value;
+  hwStyle.color = ink;
+
+  const canvas = document.getElementById('hwCanvas');
+  const slant = parseFloat(hwStyle.slant)||0;
+
+  // Split into paragraphs
+  const paragraphs = text.split(/\n+/).filter(p=>p.trim());
+
+  let html = '';
+  paragraphs.forEach((para, pi) => {
+    // Add natural variation per word
+    const words = para.split(' ');
+    let wordHtml = '';
+    words.forEach((word, wi) => {
+      // Slight random baseline shift for natural look
+      const baseShift = (Math.sin(wi * 2.3 + pi * 5.7) * 1.2).toFixed(2);
+      const sizeVar = (1 + Math.sin(wi * 1.7 + pi * 3.1) * 0.025).toFixed(3);
+      wordHtml += `<span style="display:inline-block;position:relative;top:${baseShift}px;transform:scale(${sizeVar})">${escapeHtml(word)}</span> `;
+    });
+
+    html += `<p style="
+      font-family:'${hwStyle.fontFamily}',cursive;
+      font-size:${hwStyle.fontSize};
+      line-height:${hwStyle.lineHeight};
+      letter-spacing:${hwStyle.letterSpacing};
+      color:${hwStyle.color};
+      transform:rotate(${slant}deg);
+      transform-origin:left center;
+      margin-bottom:${parseFloat(hwStyle.lineHeight)*8}px;
+      word-spacing:${parseFloat(hwStyle.letterSpacing||0)+2}px;
+    ">${wordHtml}</p>`;
+  });
+
+  canvas.innerHTML = html;
+}
+
+function rerenderText(){
+  if(currentText) renderHandwriting();
+}
+
+function escapeHtml(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function clearPage(){
+  document.getElementById('hwCanvas').innerHTML = `<div style="font-family:'Caveat',cursive;font-size:22px;color:#bbb;opacity:0.4;text-align:center;padding-top:200px">Your handwritten text will appear here...</div>`;
+  document.getElementById('textInput').value='';
+  currentText='';
+  updateWordCount('');
+}
+
+// EXPORT PNG
+async function exportPNG(){
+  if(!currentText){alert('Render some text first!');return;}
+  showLoading('Generating image...');
+  try {
+    const script = document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(script);
+    await new Promise(r=>script.onload=r);
+    const page = document.getElementById('hwPage');
+    const canvas = await html2canvas(page, {scale:2,useCORS:true,backgroundColor:page.style.background||'#ffffff'});
+    const link = document.createElement('a');
+    link.download = 'handwriting.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch(e){ alert('PNG export failed. Try Print instead.'); }
+  hideLoading();
+}
+
+// EXPORT PDF via jsPDF + html2canvas
+async function exportPDF(){
+  if(!currentText){alert('Render some text first!');return;}
+  showLoading('Generating PDF...');
+  try {
+    const script = document.createElement('script');
+    script.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(script);
+    await new Promise(r=>{if(window.html2canvas)r();else script.onload=r});
+
+    const page = document.getElementById('hwPage');
+    const canvas = await html2canvas(page,{scale:2,useCORS:true,backgroundColor:page.style.background||'#ffffff'});
+    const imgData = canvas.toDataURL('image/jpeg',0.95);
+
+    const {jsPDF} = window.jspdf;
+    const pdf = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const w=210, h=297;
+    pdf.addImage(imgData,'JPEG',0,0,w,h);
+    pdf.save('handwriting-assignment.pdf');
+  } catch(e){ alert('PDF export failed: '+e.message+'\nTry Print instead.'); }
+  hideLoading();
+}
+
+// PRINT
+function printPage(){
+  const page = document.getElementById('hwPage');
+  const bg = document.getElementById('paperColor').value;
+  const pw = window.open('','','width=900,height=1100');
+  pw.document.write(`<!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=Handlee&family=Patrick+Hand&family=Indie+Flower&family=Shadows+Into+Light&family=Reenie+Beanie&family=Nothing+You+Could+Do&display=swap" rel="stylesheet">
+    <style>
+      @media print{body{margin:0}@page{margin:0;size:A4}}
+      body{margin:0;padding:0;background:${bg};font-family:sans-serif}
+      .page{width:794px;min-height:1123px;background:${bg};padding:72px 80px 80px;position:relative;margin:auto;
+        background-image:repeating-linear-gradient(transparent,transparent 37px,rgba(100,140,220,0.12) 37px,rgba(100,140,220,0.12) 38px)
+      }
+    </style></head><body><div class="page">${page.querySelector('#hwCanvas').innerHTML}</div>
+    <script>window.onload=()=>{window.print();window.close()}<\/script></body></html>`);
+  pw.document.close();
+}
+</script>
+</body>
+</html>
