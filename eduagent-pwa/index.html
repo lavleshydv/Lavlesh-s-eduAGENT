@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#8b7cf8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EduAgent">
+<meta name="description" content="AI Handwriting & Assignment Agent">
+<title>EduAgent</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=Inter:wght@400;500&family=Caveat:wght@400;600&family=Kalam:wght@400;700&family=Handlee&family=Patrick+Hand&family=Indie+Flower&family=Shadows+Into+Light&family=Reenie+Beanie&family=Nothing+You+Could+Do&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root {
+  --bg: #0c0c12;
+  --s1: #13131c;
+  --s2: #1c1c28;
+  --s3: #252535;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --accent: #8b7cf8;
+  --accent2: #b4a8ff;
+  --green: #3ddba4;
+  --amber: #f5c842;
+  --text: #eeeaff;
+  --text2: #9994b8;
+  --text3: #5e5a7a;
+  --r: 14px;
+  --rl: 20px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; overflow:hidden; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; display:flex; flex-direction:column; }
+
+/* ── TOP BAR ── */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px 12px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  background:var(--s1); border-bottom:1px solid var(--border);
+  flex-shrink:0; z-index:100;
+}
+.logo { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; letter-spacing:-0.5px; }
+.logo em { color:var(--accent2); font-style:normal; }
+.install-btn {
+  display:none; align-items:center; gap:6px;
+  padding:7px 14px; border-radius:100px; border:1px solid rgba(139,124,248,0.4);
+  background:rgba(139,124,248,0.12); color:var(--accent2);
+  font-size:12px; font-weight:500; cursor:pointer; font-family:'Inter',sans-serif;
+}
+.install-btn.show { display:flex; }
+
+/* ── BOTTOM NAV ── */
+.bottomnav {
+  display:flex; background:var(--s1); border-top:1px solid var(--border);
+  padding-bottom: var(--safe-bottom); flex-shrink:0; z-index:100;
+}
+.nav-tab {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:10px 4px 8px; gap:4px; cursor:pointer; border:none; background:transparent;
+  color:var(--text3); font-family:'Inter',sans-serif; font-size:10px; font-weight:500;
+  transition:color 0.15s; position:relative;
+}
+.nav-tab.active { color:var(--accent2); }
+.nav-tab.active::before {
+  content:''; position:absolute; top:0; left:20%; right:20%; height:2px;
+  background:var(--accent); border-radius:0 0 3px 3px;
+}
+.nav-icon { font-size:20px; }
+
+/* ── PAGES ── */
+.page { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.page.active { display:flex; }
+
+/* ── SHARED SCROLL ── */
+.scroll { overflow-y:auto; flex:1; -webkit-overflow-scrolling:touch; }
+.scroll::-webkit-scrollbar { display:none; }
+
+/* ── HOME PAGE ── */
+.home-scroll { padding:20px 16px; gap:14px; display:flex; flex-direction:column; }
+
+.hw-upload-card {
+  background:var(--s1); border:2px dashed var(--border2); border-radius:var(--rl);
+  padding:28px 20px; text-align:center; cursor:pointer; transition:all 0.2s;
+  position:relative; overflow:hidden;
+}
+.hw-upload-card.loaded { border-color:var(--green); border-style:solid; background:rgba(61,219,164,0.04); }
+.hw-upload-card:active { transform:scale(0.98); }
+.hw-upload-card input { display:none; }
+.upload-icon { font-size:40px; margin-bottom:10px; }
+.upload-title { font-size:16px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.upload-sub { font-size:13px; color:var(--text3); line-height:1.5; }
+.upload-preview { width:100%; max-height:140px; object-fit:cover; border-radius:10px; margin-top:12px; display:none; }
+
+.trait-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px;
+}
+.trait-card {
+  background:var(--s2); border:1px solid var(--border); border-radius:var(--r);
+  padding:10px 12px;
+}
+.tc-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px; }
+.tc-val { font-size:14px; font-weight:500; color:var(--accent2); }
+
+.section-title { font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
+
+/* Font picker */
+.font-scroll { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; }
+.font-scroll::-webkit-scrollbar { display:none; }
+.font-chip {
+  flex-shrink:0; padding:8px 16px; border-radius:100px; border:1px solid var(--border2);
+  background:var(--s2); color:var(--text2); font-size:13px; cursor:pointer; white-space:nowrap;
+  transition:all 0.15s;
+}
+.font-chip.on { background:rgba(139,124,248,0.18); border-color:rgba(139,124,248,0.5); color:var(--accent2); }
+
+/* Sliders */
+.slider-row { margin-bottom:14px; }
+.sl-label { display:flex; justify-content:space-between; font-size:12px; color:var(--text3); margin-bottom:7px; }
+.sl-label span { color:var(--accent2); font-weight:500; }
+input[type=range] {
+  width:100%; height:4px; -webkit-appearance:none; appearance:none;
+  background:var(--s3); border-radius:2px; cursor:pointer; outline:none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:20px; height:20px;
+  background:var(--accent); border-radius:50%; border:3px solid var(--bg);
+  box-shadow:0 0 0 1px var(--accent);
+}
+select.sel {
+  width:100%; background:var(--s2); border:1px solid var(--border2); color:var(--text2);
+  font-family:'Inter',sans-serif; font-size:13px; padding:10px 14px; border-radius:var(--r);
+  -webkit-appearance:none; appearance:none;
+}
+
+/* ── WRITE PAGE ── */
+.write-top { padding:14px 16px; background:var(--s1); border-bottom:1px solid var(--border); flex-shrink:0; }
+.big-textarea {
+  width:100%; background:var(--s2); border:1px solid var(--border2); color:var(--text);
+  font-family:'Inter',sans-serif; font-size:14px; padding:12px 14px; border-radius:var(--r);
+  resize:none; line-height:1.6; min-height:100px; outline:none;
+  -webkit-appearance:none;
+}
+.big-textarea::placeholder { color:var(--text3); }
+.big-textarea:focus { border-color:var(--accent); }
+.write-btns { display:flex; gap:8px; margin-top:10px; }
+.btn {
+  flex:1; padding:12px 10px; border-radius:var(--r); border:none; font-family:'Inter',sans-serif;
+  font-size:13px; font-weight:500; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;
+  transition:all 0.15s; -webkit-tap-highlight-color:transparent;
+}
+.btn:active { transform:scale(0.97); }
+.btn-ai { background:var(--s2); border:1px solid var(--border2); color:var(--text2); }
+.btn-render { background:var(--accent); color:#fff; }
+.btn-disabled { opacity:0.45; pointer-events:none; }
+
+.quick-chips { display:flex; gap:6px; overflow-x:auto; padding:10px 16px 2px; flex-shrink:0; }
+.quick-chips::-webkit-scrollbar { display:none; }
+.qchip {
+  flex-shrink:0; padding:7px 14px; border-radius:100px; border:1px solid var(--border);
+  background:var(--s2); color:var(--text3); font-size:11px; cursor:pointer;
+  font-family:'Inter',sans-serif; white-space:nowrap; transition:all 0.15s;
+}
+.qchip:active { border-color:var(--accent); color:var(--accent2); }
+
+/* ── PREVIEW PAGE ── */
+.preview-toolbar {
+  display:flex; gap:8px; padding:12px 16px; background:var(--s1);
+  border-bottom:1px solid var(--border); flex-shrink:0; overflow-x:auto;
+}
+.preview-toolbar::-webkit-scrollbar { display:none; }
+.tbtn {
+  flex-shrink:0; padding:9px 16px; border-radius:10px; border:1px solid var(--border2);
+  background:var(--s2); color:var(--text2); font-size:12px; font-family:'Inter',sans-serif;
+  cursor:pointer; display:flex; align-items:center; gap:5px; white-space:nowrap;
+}
+.tbtn-green { border-color:rgba(61,219,164,0.35); background:rgba(61,219,164,0.08); color:var(--green); }
+.tbtn-purple { border-color:rgba(139,124,248,0.35); background:rgba(139,124,248,0.08); color:var(--accent2); }
+.tbtn:active { transform:scale(0.96); }
+
+.page-wrap { padding:20px 12px; background:#e8e8e0; }
+.hw-paper {
+  background:#fff; border-radius:4px; padding:48px 40px 56px;
+  box-shadow:0 4px 24px rgba(0,0,0,0.15);
+  min-height:600px; position:relative; overflow:hidden;
+}
+.hw-paper.lined::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(transparent,transparent 37px,rgba(100,140,220,0.13) 37px,rgba(100,140,220,0.13) 38px);
+}
+.hw-paper.ruled::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(transparent,transparent 37px,rgba(180,180,210,0.2) 37px,rgba(180,180,210,0.2) 38px);
+}
+.hw-paper.graph::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:
+    repeating-linear-gradient(transparent,transparent 24px,rgba(100,140,220,0.1) 24px,rgba(100,140,220,0.1) 25px),
+    repeating-linear-gradient(90deg,transparent,transparent 24px,rgba(100,140,220,0.1) 24px,rgba(100,140,220,0.1) 25px);
+}
+#hwOutput { position:relative; z-index:1; min-height:500px; }
+.page-hint {
+  font-family:'Caveat',cursive; font-size:22px; color:#bbb;
+  text-align:center; padding-top:160px;
+}
+
+/* Page style pills */
+.ps-row { display:flex; gap:6px; }
+.ps-pill {
+  padding:6px 14px; border-radius:100px; border:1px solid var(--border);
+  background:transparent; color:var(--text3); font-size:11px; cursor:pointer;
+  font-family:'Inter',sans-serif; transition:all 0.15s;
+}
+.ps-pill.on { background:rgba(139,124,248,0.15); border-color:rgba(139,124,248,0.4); color:var(--accent2); }
+
+/* ── LOADING OVERLAY ── */
+.loader {
+  display:none; position:fixed; inset:0; background:rgba(12,12,18,0.82);
+  z-index:999; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+}
+.loader.show { display:flex; }
+.spin { width:44px; height:44px; border:3px solid var(--s3); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.load-txt { font-size:14px; color:var(--text2); text-align:center; padding:0 32px; }
+
+/* ── TOAST ── */
+.toast {
+  position:fixed; bottom:calc(80px + var(--safe-bottom)); left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--s3); border:1px solid var(--border2); color:var(--text); padding:10px 20px;
+  border-radius:100px; font-size:13px; z-index:500; opacity:0; transition:all 0.25s; white-space:nowrap;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── INSTALL PROMPT ── */
+.install-card {
+  display:none; margin:16px; background:rgba(139,124,248,0.1); border:1px solid rgba(139,124,248,0.3);
+  border-radius:var(--rl); padding:16px;
+}
+.install-card.show { display:block; }
+.inst-title { font-size:15px; font-weight:600; color:var(--accent2); margin-bottom:6px; }
+.inst-sub { font-size:12px; color:var(--text2); line-height:1.6; margin-bottom:12px; }
+.inst-row { display:flex; gap:8px; }
+.inst-btn {
+  flex:1; padding:10px; border-radius:10px; border:none; font-family:'Inter',sans-serif;
+  font-size:13px; font-weight:500; cursor:pointer; text-align:center;
+}
+.inst-yes { background:var(--accent); color:#fff; }
+.inst-no { background:var(--s3); color:var(--text2); }
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div class="loader" id="loader">
+  <div class="spin"></div>
+  <div class="load-txt" id="loadTxt">Processing...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">Edu<em>Agent</em></div>
+  <button class="install-btn" id="installBtn" onclick="installApp()">⬇ Install App</button>
+</div>
+
+<!-- ══════════ PAGE: HOME (Style Setup) ══════════ -->
+<div class="page active" id="page-home">
+  <div class="scroll">
+    <div class="home-scroll">
+
+      <!-- Install card -->
+      <div class="install-card" id="installCard">
+        <div class="inst-title">📲 Install as App</div>
+        <div class="inst-sub">Add EduAgent to your home screen for quick access — works like a real Android app, even offline!</div>
+        <div class="inst-row">
+          <button class="inst-btn inst-yes" onclick="installApp()">Install Now</button>
+          <button class="inst-btn inst-no" onclick="document.getElementById('installCard').classList.remove('show')">Later</button>
+        </div>
+      </div>
+
+      <!-- STEP 1: Upload -->
+      <div>
+        <div class="section-title">Step 1 · Scan Your Handwriting</div>
+        <div class="hw-upload-card" id="uploadCard" onclick="document.getElementById('hwFile').click()">
+          <input type="file" id="hwFile" accept="image/*" onchange="onUpload(event)">
+          <div class="upload-icon" id="uploadIcon">📸</div>
+          <div class="upload-title" id="uploadTitle">Upload Handwriting Photo</div>
+          <div class="upload-sub" id="uploadSub">Take a photo of your notes or any handwriting sample. AI will detect your style automatically.</div>
+          <img id="uploadPreview" class="upload-preview">
+        </div>
+      </div>
+
+      <!-- Detected traits -->
+      <div id="traitsSection" style="display:none">
+        <div class="section-title">Detected Style ✓</div>
+        <div class="trait-grid">
+          <div class="trait-card"><div class="tc-label">Slant</div><div class="tc-val" id="tSlant">—</div></div>
+          <div class="trait-card"><div class="tc-label">Style</div><div class="tc-val" id="tStyle">—</div></div>
+          <div class="trait-card"><div class="tc-label">Size</div><div class="tc-val" id="tSize">—</div></div>
+          <div class="trait-card"><div class="tc-label">Best Match</div><div class="tc-val" id="tFont">—</div></div>
+        </div>
+      </div>
+
+      <!-- STEP 2: Font -->
+      <div>
+        <div class="section-title">Step 2 · Handwriting Style</div>
+        <div class="font-scroll" id="fontScroll">
+          <div class="font-chip on" data-font="Caveat" onclick="pickFont('Caveat',this)" style="font-family:'Caveat'">Casual</div>
+          <div class="font-chip" data-font="Kalam" onclick="pickFont('Kalam',this)" style="font-family:'Kalam'">Neat Print</div>
+          <div class="font-chip" data-font="Handlee" onclick="pickFont('Handlee',this)" style="font-family:'Handlee'">Loopy</div>
+          <div class="font-chip" data-font="Patrick Hand" onclick="pickFont('Patrick Hand',this)" style="font-family:'Patrick Hand'">Clean</div>
+          <div class="font-chip" data-font="Indie Flower" onclick="pickFont('Indie Flower',this)" style="font-family:'Indie Flower'">Bubbly</div>
+          <div class="font-chip" data-font="Shadows Into Light" onclick="pickFont('Shadows Into Light',this)" style="font-family:'Shadows Into Light'">Slanted</div>
+          <div class="font-chip" data-font="Reenie Beanie" onclick="pickFont('Reenie Beanie',this)" style="font-family:'Reenie Beanie'">Thin</div>
+          <div class="font-chip" data-font="Nothing You Could Do" onclick="pickFont('Nothing You Could Do',this)" style="font-family:'Nothing You Could Do'">Artistic</div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Sliders -->
+      <div>
+        <div class="section-title">Step 3 · Fine-Tune</div>
+
+        <div class="slider-row">
+          <div class="sl-label">Font Size <span id="v-fs">22px</span></div>
+          <input type="range" min="14" max="36" value="22" oninput="sl('fontSize',this.value+'px','v-fs',this.value+'px')">
+        </div>
+        <div class="slider-row">
+          <div class="sl-label">Line Height <span id="v-lh">1.9</span></div>
+          <input type="range" min="12" max="28" value="19" oninput="sl('lineHeight',(this.value/10).toFixed(1),'v-lh',(this.value/10).toFixed(1))">
+        </div>
+        <div class="slider-row">
+          <div class="sl-label">Slant <span id="v-sl">0°</span></div>
+          <input type="range" min="-10" max="10" value="0" oninput="sl('slant',this.value+'deg','v-sl',this.value+'°')">
+        </div>
+        <div class="slider-row">
+          <div class="sl-label">Letter Spacing <span id="v-ls">0px</span></div>
+          <input type="range" min="-2" max="8" value="0" oninput="sl('letterSpacing',this.value+'px','v-ls',this.value+'px')">
+        </div>
+
+        <div class="slider-row">
+          <div class="sl-label" style="margin-bottom:8px">Ink Color</div>
+          <select class="sel" id="inkSel" onchange="rerender()">
+            <option value="#1a1230">Dark Blue-Black</option>
+            <option value="#0d0d0d">Jet Black</option>
+            <option value="#1a3a6b">Royal Blue</option>
+            <option value="#2c1a6b">Deep Indigo</option>
+            <option value="#1a4a1a">Dark Green</option>
+            <option value="#8B0000">Dark Red</option>
+          </select>
+        </div>
+
+        <div class="slider-row" style="margin-top:14px">
+          <div class="sl-label" style="margin-bottom:8px">Page Style</div>
+          <div class="ps-row">
+            <button class="ps-pill on" onclick="setPS('lined',this)">Lined</button>
+            <button class="ps-pill" onclick="setPS('ruled',this)">Ruled</button>
+            <button class="ps-pill" onclick="setPS('graph',this)">Graph</button>
+            <button class="ps-pill" onclick="setPS('plain',this)">Plain</button>
+          </div>
+        </div>
+
+        <div class="slider-row" style="margin-top:12px">
+          <div class="sl-label" style="margin-bottom:8px">Paper Color</div>
+          <select class="sel" id="paperSel" onchange="setPaper(this.value)">
+            <option value="#ffffff">White</option>
+            <option value="#fafaf4">Cream</option>
+            <option value="#f5f0e8">Parchment</option>
+            <option value="#f0f4ff">Light Blue</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PAGE: WRITE ══════════ -->
+<div class="page" id="page-write">
+  <div class="write-top">
+    <textarea class="big-textarea" id="textInput" placeholder="Type your assignment, notes, or topic here..." rows="4"
+      oninput="updateWC()"></textarea>
+    <div class="write-btns">
+      <button class="btn btn-ai" id="aiBtnW" onclick="aiWrite()">✨ AI Write</button>
+      <button class="btn btn-render" onclick="doRender()">✍️ Render →</button>
+    </div>
+  </div>
+  <div class="quick-chips">
+    <div class="qchip" onclick="qp('Write a 250-word essay on climate change and its global effects.')">🌍 Climate</div>
+    <div class="qchip" onclick="qp('Write a project report on renewable energy sources with introduction, body, and conclusion.')">⚡ Energy Report</div>
+    <div class="qchip" onclick="qp('Solve step by step: 1) 3x + 7 = 22  2) Area of a circle with radius 5cm  3) Simplify 4(2x-3)+6x')">🔢 Math</div>
+    <div class="qchip" onclick="qp('Write notes on the causes of World War I including Franz Ferdinand assassination.')">📜 History</div>
+    <div class="qchip" onclick="qp('Explain photosynthesis: how plants convert sunlight, water and CO2 into glucose and oxygen.')">🌿 Science</div>
+    <div class="qchip" onclick="qp('Write a lab report introduction: Investigating the effect of temperature on enzyme activity.')">⚗️ Lab Report</div>
+    <div class="qchip" onclick="qp('Write a short story about a student who discovers a time machine in the school library.')">📖 Story</div>
+  </div>
+  <div class="scroll" style="padding:14px 16px">
+    <div style="font-size:12px;color:var(--text3);line-height:1.7">
+      <strong style="color:var(--text2)">Tips:</strong><br>
+      • Tap a quick chip above to auto-fill a topic<br>
+      • Tap ✨ AI Write to generate content with Claude<br>
+      • Tap ✍️ Render to see your handwriting preview<br>
+      • Edit detected style on the Style tab
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:var(--text3)" id="wcDisplay">0 words · 0 chars</div>
+  </div>
+</div>
+
+<!-- ══════════ PAGE: PREVIEW ══════════ -->
+<div class="page" id="page-preview">
+  <div class="preview-toolbar">
+    <button class="tbtn tbtn-green" onclick="exportPDF()">📄 PDF</button>
+    <button class="tbtn tbtn-purple" onclick="exportPNG()">📷 PNG</button>
+    <button class="tbtn" onclick="printPage()">🖨 Print</button>
+    <button class="tbtn" onclick="clearPreview()">🗑 Clear</button>
+  </div>
+  <div class="scroll">
+    <div class="page-wrap">
+      <div class="hw-paper lined" id="hwPaper" style="background:#fff">
+        <div id="hwOutput"><div class="page-hint">Write text on the Write tab, then tap Render ✍️</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ BOTTOM NAV ══════════ -->
+<div class="bottomnav">
+  <button class="nav-tab active" id="tab-home" onclick="goTab('home')">
+    <div class="nav-icon">🎨</div>Style
+  </button>
+  <button class="nav-tab" id="tab-write" onclick="goTab('write')">
+    <div class="nav-icon">✏️</div>Write
+  </button>
+  <button class="nav-tab" id="tab-preview" onclick="goTab('preview')">
+    <div class="nav-icon">👁</div>Preview
+  </button>
+</div>
+
+<script>
+// ── STATE ──
+let hw = { fontFamily:'Caveat', fontSize:'22px', lineHeight:'1.9', slant:'0deg', letterSpacing:'0px', color:'#1a1230' };
+let pageStyle = 'lined';
+let uploadedB64 = null, uploadedMime = null;
+let currentText = '';
+let deferredInstall = null;
+
+// ── PWA INSTALL ──
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('installBtn').classList.add('show');
+  document.getElementById('installCard').classList.add('show');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').classList.remove('show');
+  document.getElementById('installCard').classList.remove('show');
+  toast('✅ EduAgent installed on your home screen!');
+});
+async function installApp() {
+  if (!deferredInstall) {
+    toast('Open in Chrome browser to install');
+    return;
+  }
+  deferredInstall.prompt();
+  const { outcome } = await deferredInstall.userChoice;
+  if (outcome === 'accepted') toast('Installing...');
+  deferredInstall = null;
+  document.getElementById('installBtn').classList.remove('show');
+}
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ── NAVIGATION ──
+function goTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── UTILS ──
+function showLoader(txt) { document.getElementById('loader').classList.add('show'); document.getElementById('loadTxt').textContent = txt || 'Processing...'; }
+function hideLoader() { document.getElementById('loader').classList.remove('show'); }
+function toast(msg, dur=2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+function qp(txt) { document.getElementById('textInput').value = txt; updateWC(); }
+function updateWC() {
+  const t = document.getElementById('textInput').value;
+  const w = t.trim() ? t.trim().split(/\s+/).length : 0;
+  document.getElementById('wcDisplay').textContent = `${w} words · ${t.length} chars`;
+}
+
+// ── FONT & SLIDERS ──
+function pickFont(font, el) {
+  hw.fontFamily = font;
+  document.querySelectorAll('.font-chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  rerender();
+}
+function sl(prop, val, id, display) {
+  hw[prop] = val;
+  document.getElementById(id).textContent = display;
+  rerender();
+}
+function setPS(style, btn) {
+  pageStyle = style;
+  const paper = document.getElementById('hwPaper');
+  paper.className = 'hw-paper ' + (style === 'plain' ? '' : style);
+  document.querySelectorAll('.ps-pill').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+function setPaper(color) { document.getElementById('hwPaper').style.background = color; }
+function rerender() { if (currentText) renderHW(currentText); }
+
+// ── IMAGE UPLOAD + AI ANALYSIS ──
+async function onUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const data = ev.target.result;
+    uploadedB64 = data.split(',')[1];
+    uploadedMime = file.type;
+    const card = document.getElementById('uploadCard');
+    const prev = document.getElementById('uploadPreview');
+    card.classList.add('loaded');
+    prev.src = data; prev.style.display = 'block';
+    document.getElementById('uploadIcon').textContent = '✅';
+    document.getElementById('uploadTitle').textContent = 'Photo uploaded — analyzing...';
+    document.getElementById('uploadSub').textContent = file.name;
+    await analyzeHW();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeHW() {
+  showLoader('Scanning your handwriting with Claude Vision...');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: uploadedMime, data: uploadedB64 } },
+            { type: 'text', text: `Analyze this handwriting. Return ONLY raw JSON, no markdown, no backticks:
+{"slant":"right-leaning|left-leaning|vertical|slightly-right","size":"small|medium|large","style":"cursive|print|mixed","pressure":"light|medium|heavy","bestFontMatch":"Caveat|Kalam|Handlee|Patrick Hand|Indie Flower|Shadows Into Light|Reenie Beanie|Nothing You Could Do","suggestedSlantDeg":0,"suggestedSize":22,"suggestedLineHeight":1.9,"suggestedLetterSpacing":0}` }
+          ]
+        }]
+      })
+    });
+    const d = await res.json();
+    const raw = (d.content?.[0]?.text || '{}').replace(/```json|```/g, '').trim();
+    const t = JSON.parse(raw);
+
+    // Apply detected style
+    hw.fontFamily = t.bestFontMatch || 'Caveat';
+    hw.slant = (t.suggestedSlantDeg || 0) + 'deg';
+    hw.fontSize = (t.suggestedSize || 22) + 'px';
+    hw.lineHeight = String(t.suggestedLineHeight || 1.9);
+    hw.letterSpacing = (t.suggestedLetterSpacing || 0) + 'px';
+
+    // Update UI
+    const inputs = document.querySelectorAll('input[type=range]');
+    inputs[0].value = t.suggestedSize || 22; document.getElementById('v-fs').textContent = hw.fontSize;
+    inputs[1].value = Math.round((t.suggestedLineHeight || 1.9) * 10); document.getElementById('v-lh').textContent = hw.lineHeight;
+    inputs[2].value = t.suggestedSlantDeg || 0; document.getElementById('v-sl').textContent = (t.suggestedSlantDeg || 0) + '°';
+    inputs[3].value = t.suggestedLetterSpacing || 0; document.getElementById('v-ls').textContent = hw.letterSpacing;
+
+    document.querySelectorAll('.font-chip').forEach(c => c.classList.toggle('on', c.dataset.font === t.bestFontMatch));
+
+    // Show traits
+    document.getElementById('traitsSection').style.display = 'block';
+    document.getElementById('tSlant').textContent = t.slant || '—';
+    document.getElementById('tStyle').textContent = t.style || '—';
+    document.getElementById('tSize').textContent = t.size || '—';
+    document.getElementById('tFont').textContent = t.bestFontMatch || '—';
+
+    document.getElementById('uploadTitle').textContent = '✅ Style Detected!';
+    document.getElementById('uploadSub').textContent = 'Tap to change image';
+    toast('✅ Handwriting analyzed! Now go to Write tab.');
+    rerender();
+  } catch (err) {
+    toast('Could not analyze — check connection');
+    document.getElementById('uploadTitle').textContent = '⚠️ Analysis failed';
+  }
+  hideLoader();
+}
+
+// ── AI WRITE ──
+async function aiWrite() {
+  const prompt = document.getElementById('textInput').value.trim();
+  if (!prompt) { toast('Enter a topic or assignment first'); return; }
+  showLoader('Claude is writing your assignment...');
+  document.getElementById('aiBtnW').disabled = true;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 700,
+        system: `You are an expert academic writer for students. Write natural, clear student-quality text.
+Do NOT use markdown, asterisks, bullet points, or headers. Write in plain paragraphs only.
+Keep it concise and natural — suitable for handwriting (max 250 words unless asked for more).`,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const d = await res.json();
+    const text = d.content?.[0]?.text || '';
+    document.getElementById('textInput').value = text;
+    updateWC();
+    currentText = text;
+    renderHW(text);
+    goTab('preview');
+    toast('✍️ Rendered in your handwriting!');
+  } catch (err) {
+    toast('AI failed: ' + err.message);
+  }
+  document.getElementById('aiBtnW').disabled = false;
+  hideLoader();
+}
+
+// ── RENDER ──
+function doRender() {
+  const text = document.getElementById('textInput').value.trim();
+  if (!text) { toast('Enter some text first!'); return; }
+  currentText = text;
+  renderHW(text);
+  goTab('preview');
+}
+
+function renderHW(text) {
+  const ink = document.getElementById('inkSel').value;
+  hw.color = ink;
+  const slant = parseFloat(hw.slant) || 0;
+  const paras = text.split(/\n+/).filter(p => p.trim());
+  let html = '';
+  paras.forEach((para, pi) => {
+    const words = para.split(' ');
+    let whtml = '';
+    words.forEach((word, wi) => {
+      const shift = (Math.sin(wi * 2.3 + pi * 5.7) * 1.1).toFixed(2);
+      const scl = (1 + Math.sin(wi * 1.7 + pi * 3.1) * 0.022).toFixed(3);
+      whtml += `<span style="display:inline-block;position:relative;top:${shift}px;transform:scale(${scl})">${esc(word)}</span> `;
+    });
+    html += `<p style="font-family:'${hw.fontFamily}',cursive;font-size:${hw.fontSize};line-height:${hw.lineHeight};letter-spacing:${hw.letterSpacing};color:${hw.color};transform:rotate(${slant}deg);transform-origin:left center;margin-bottom:${parseFloat(hw.lineHeight) * 6}px">${whtml}</p>`;
+  });
+  document.getElementById('hwOutput').innerHTML = html;
+}
+
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function clearPreview() { document.getElementById('hwOutput').innerHTML = '<div class="page-hint">Write text on the Write tab, then tap Render ✍️</div>'; currentText = ''; }
+
+// ── EXPORT PDF ──
+async function exportPDF() {
+  if (!currentText) { toast('Render text first!'); return; }
+  showLoader('Generating PDF...');
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    const paper = document.getElementById('hwPaper');
+    const canvas = await html2canvas(paper, { scale: 2, useCORS: true, backgroundColor: paper.style.background || '#fff' });
+    const img = canvas.toDataURL('image/jpeg', 0.93);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    pdf.addImage(img, 'JPEG', 0, 0, 210, 297);
+    pdf.save('eduagent-handwriting.pdf');
+    toast('✅ PDF saved!');
+  } catch (e) { toast('PDF error — try Print instead'); }
+  hideLoader();
+}
+
+// ── EXPORT PNG ──
+async function exportPNG() {
+  if (!currentText) { toast('Render text first!'); return; }
+  showLoader('Generating image...');
+  try {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    const paper = document.getElementById('hwPaper');
+    const canvas = await html2canvas(paper, { scale: 2, useCORS: true, backgroundColor: paper.style.background || '#fff' });
+    const link = document.createElement('a');
+    link.download = 'handwriting.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('✅ Image saved!');
+  } catch (e) { toast('PNG error — try Print instead'); }
+  hideLoader();
+}
+
+// ── PRINT ──
+function printPage() {
+  const paper = document.getElementById('hwPaper');
+  const bg = document.getElementById('paperSel').value;
+  const pw = window.open('', '', 'width=900,height=1200');
+  pw.document.write(`<!DOCTYPE html><html><head>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600&family=Kalam:wght@400&family=Handlee&family=Patrick+Hand&family=Indie+Flower&family=Shadows+Into+Light&family=Reenie+Beanie&family=Nothing+You+Could+Do&display=swap" rel="stylesheet">
+<style>@media print{body{margin:0}@page{margin:0;size:A4}}
+body{margin:0;padding:40px;background:${bg};font-family:sans-serif}
+.page{background:${bg};padding:56px 60px 64px;min-height:1000px;
+  background-image:repeating-linear-gradient(transparent,transparent 37px,rgba(100,140,220,0.13) 37px,rgba(100,140,220,0.13) 38px)}
+</style></head><body><div class="page">${paper.querySelector('#hwOutput').innerHTML}</div>
+<script>window.onload=()=>{window.print();window.close()}<\/script></body></html>`);
+  pw.document.close();
+}
+
+// ── LOAD SCRIPT ──
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`) && window.html2canvas) return res();
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+</script>
+</body>
+</html>
